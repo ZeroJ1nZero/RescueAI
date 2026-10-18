@@ -1,5 +1,5 @@
 """
-RescueAI - DB에 입력된 원시 JSON 데이터를 Gemma 3 4B를 이용해 정제하는 실행 스크립트
+연암소방대 - DB에 입력된 원시 JSON 데이터를 Gemma 3 4B를 이용해 정제하는 실행 스크립트
 1. raw_telemetry_logs에서 원본 JSON 추출
 2. Gemma 3 4B 입력 프롬프트 조립
 3. Gemma 3 4B 상황 판단 추론 실행 (Structured JSON)

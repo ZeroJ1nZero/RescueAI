@@ -1,5 +1,5 @@
 """
-RescueAI - Gemma 3 4B 기반 실시간 전술 상황 판단 (Situation Assessment) 엔진
+연암소방대 - Gemma 3 4B 기반 실시간 전술 상황 판단 (Situation Assessment) 엔진
 실 계측값(온도, 거리, 자세, 가스)과 카메라 영상 스냅샷을 결합하여
 화재/재난 현장의 위험도를 정형화된 JSON으로 추론합니다.
 """

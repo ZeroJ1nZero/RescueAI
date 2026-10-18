@@ -1,5 +1,5 @@
 """
-RescueAI - 현장 AI 보드 / 외장 SSD 세션 데이터 전송 시뮬레이터
+연암소방대 - 현장 AI 보드 / 외장 SSD 세션 데이터 전송 시뮬레이터
 프레임 분석 JSON 스키마(timestamp, frame_id, detected_objects [class, screen_box, description]) 및
 MDM 인가 단말 헤더(X-Terminal-Id)를 사용하여 수집 계층 API를 테스트합니다.
 """

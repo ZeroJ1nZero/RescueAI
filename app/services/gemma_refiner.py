@@ -1,5 +1,5 @@
 """
-RescueAI - Gemma 3 4B 기반 원시 데이터 정제(Refining) 및 전술 상황 판단 엔진
+연암소방대 - Gemma 3 4B 기반 원시 데이터 정제(Refining) 및 전술 상황 판단 엔진
 DB의 raw_telemetry_logs에 선저장된 원본 계측 JSON을 읽어와
 Gemma 3 4B 멀티모달 모델을 통해 지도 앱용 정제 데이터(ai_assessments, sensor_logs)로 변환합니다.
 """

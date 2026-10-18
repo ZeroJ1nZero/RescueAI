@@ -1,1 +1,1 @@
-# RescueAI API Package
+# 연암소방대 API Package

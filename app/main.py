@@ -10,8 +10,8 @@ os.makedirs("static/maps", exist_ok=True)
 os.makedirs("static/snapshots", exist_ok=True)
 
 app = FastAPI(
-    title="RescueAI Tactical Backend System",
-    description="저조도·열화상 센서 융합 및 실시간 3D 소방 공간지도 관제 백엔드 API (소방/군 공무원 보안 규격 적용)",
+    title="연암소방대 (Yeonam Fire Brigade) 관제 백엔드 API",
+    description="영상 객체 분석 기반 실내 공간지도 관제 시스템 백엔드 API",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -36,7 +36,7 @@ app.include_router(api_router)
 @app.get("/", tags=["시스템 상태"])
 def root():
     return {
-        "system": "RescueAI Tactical Backend",
+        "system": "연암소방대 관제 백엔드 시스템",
         "status": "OPERATIONAL",
         "environment": settings.ENVIRONMENT,
         "security_level": "GOVERNMENT_TACTICAL"
