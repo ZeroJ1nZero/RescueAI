@@ -16,7 +16,7 @@ GitHub 저장소를 클론한 후, 본인의 담당 파트에 맞는 섹션과 �
 | **정세빈** | **Frontend & UI** | 어플리케이션 프론트엔드 디자인 및 공간지도 UI 설계 | [6.1 주요 API 엔드포인트](#61-restful-api-일람), [6.3 실시간 WebSocket](#63-관제-계층-실시간-websocket-api) |
 | **이세이** | **Frontend & UI** | 어플리케이션 프론트엔드 연동 및 관제 인터페이스 구현 | [6.1 주요 API 엔드포인트](#61-restful-api-일람), [6.3 실시간 WebSocket](#63-관제-계층-실시간-websocket-api) |
 
-> 📄 **상세 입출력(I/O) 명세서**: 더 자세한 요청/응답 JSON 필드 설명은 [`docs/data_interface_specification.md`](docs/data_interface_specification.md) 문서에서 확인하세요.
+> 📄 **상세 API 명세서**: 더 자세한 요청/응답 JSON 필드 설명은 [`docs/api_specification.md`](docs/api_specification.md) 문서에서 확인하세요.
 
 ---
 

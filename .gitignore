@@ -22,13 +22,12 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Runtime / Local Draft Documents (Optional - Keep official docs only)
-docs/other's specification/
-docs/*.pdf
-docs/plan.md
-docs/AI_소방_공간지도_시스템_기획서.md
+# Runtime / Local Draft Documents (Keep only docs/api_specification.md on GitHub)
+docs/*
+!docs/api_specification.md
 
 # Dynamically Uploaded Static Files (Keep directory structure or sample snapshots if needed)
 static/snapshots/snapshot_m*_1*.jpg
 static/maps/*.glb
 static/maps/floorplans/*
+
