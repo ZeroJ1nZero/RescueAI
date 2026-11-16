@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.deps import get_current_officer, require_clearance, require_role, verify_edge_device
@@ -277,6 +278,91 @@ async def ingest_batch_telemetry(
         "mission_id": mission_id,
         "total_ingested": len(results),
         "results": results
+    }
+
+
+class AssessmentNotifyRequest(BaseModel):
+    assessment_ids: List[int] = Field(..., min_length=1, max_length=500, description="새로 저장된 ai_assessments ID 목록")
+    source: str = Field(default="external", max_length=50, description="알림 출처 (예: fire_vision_import)")
+
+
+def _marker_message(a: AIAssessment) -> dict:
+    """ai_assessments 행 → 실시간 파이프라인과 같은 형식의 AI_MARKER_ALERT 메시지"""
+    title_prefix = "🔥 화재 위험" if a.poi_type == POIType.FIRE_HOTSPOT else (
+        "🚨 구조 대상자 발견" if a.human_detected else "⚠️ 현장 위험 주의"
+    )
+    aj = a.assessment_json or {}
+    return {
+        "type": "AI_MARKER_ALERT",
+        "mission_id": a.mission_id,
+        "assessment_id": a.assessment_id,
+        "timestamp": a.timestamp,
+        "frame_id": aj.get("frame_id"),
+        "hazard_level": a.hazard_level.value,
+        "poi_type": a.poi_type.value if a.poi_type else POIType.OBSTACLE_HAZARD.value,
+        "title": f"[{a.hazard_level.value}] {title_prefix}",
+        "summary": a.situation_summary,
+        "action_recommendation": a.action_recommendation,
+        "coord": {"x": a.coord_x or 0.0, "y": a.coord_y or 0.0, "z": a.coord_z or 0.0},
+        "detected_objects": aj.get("detected_objects") or [],
+        "snapshot_url": f"/static/{a.snapshot_path}" if a.snapshot_path else None,
+    }
+
+
+@router.post(
+    "/{mission_id}/notify/assessments",
+    summary="[내부 연동] 서버 밖에서 저장된 AI 판단 결과를 관제 앱에 실시간 푸시",
+    description=(
+        "SSD 세션 가져오기 스크립트처럼 서버 프로세스 밖에서 DB에 직접 저장한 ai_assessments를 "
+        "WebSocket 구독 중인 앱에 방송합니다. 서버는 전달받은 ID를 DB에서 다시 읽어 메시지를 만듭니다. "
+        "CRITICAL·WARNING·인명 발견 판단은 AI_MARKER_ALERT로, 전체 건수는 ASSESSMENTS_IMPORTED로 보냅니다. "
+        "인증 헤더는 수집 API와 같습니다(`X-Device-Id`/`X-Device-Key` 또는 `X-Terminal-Id`)."
+    )
+)
+async def notify_assessments(
+    mission_id: int,
+    req: AssessmentNotifyRequest,
+    device: Device = Depends(verify_edge_device),
+    db: Session = Depends(get_db)
+):
+    mission = db.query(Mission).filter(Mission.mission_id == mission_id).first()
+    if not mission:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="작전을 찾을 수 없습니다.")
+
+    ids = sorted(set(req.assessment_ids))
+    rows = db.query(AIAssessment).filter(
+        AIAssessment.mission_id == mission_id,
+        AIAssessment.assessment_id.in_(ids)
+    ).order_by(AIAssessment.timestamp.asc()).all()
+    found = {r.assessment_id for r in rows}
+    missing = [i for i in ids if i not in found]
+
+    alerts = 0
+    for a in rows:
+        if a.hazard_level in (HazardLevel.CRITICAL, HazardLevel.WARNING) or a.human_detected:
+            await mission_manager.broadcast(mission_id, _marker_message(a))
+            alerts += 1
+
+    if rows:
+        await mission_manager.broadcast(mission_id, {
+            "type": "ASSESSMENTS_IMPORTED",
+            "mission_id": mission_id,
+            "source": req.source,
+            "count": len(rows),
+            "alert_count": alerts,
+            "assessment_ids": [r.assessment_id for r in rows],
+            "latest_timestamp": rows[-1].timestamp,
+            "message": f"새 분석 결과 {len(rows)}건이 저장되었습니다. 전체 상태는 /map-state를 다시 조회하세요.",
+        })
+
+    return {
+        "status": "BROADCAST",
+        "mission_id": mission_id,
+        "received": len(ids),
+        "broadcast_assessments": len(rows),
+        "alerts_sent": alerts,
+        "missing_ids": missing,
+        "connected_clients": len(mission_manager.active_connections.get(mission_id, [])),
     }
 
 

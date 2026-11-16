@@ -1,25 +1,31 @@
 """
-연암소방대 - Gemma 3 4B 기반 실시간 전술 상황 판단 (Situation Assessment) 엔진
-실 계측값(온도, 거리, 자세, 가스)과 카메라 영상 스냅샷을 결합하여
-화재/재난 현장의 위험도를 정형화된 JSON으로 추론합니다.
+연암소방대 - 실시간 전술 상황 판단 (Real-time Tactical Rule Engine) 서비스
+실시간 API(/telemetry, /telemetry/raw, /telemetry/batch)로 유입되는 프레임 객체(detected_objects) 및
+센서 계측값(온도, 거리, 자세, 가스)을 기반으로 지연 없이(Zero-Latency) 현장의 위험도와 POI 마커를 즉시 판정합니다.
+
+※ LLM(Gemma 3 4B) 프롬프트 조립 및 원시 로그 배치 정제(Refining)는 `app/services/gemma_refiner.py`에서 전담합니다.
 """
 
-import os
-import json
-import base64
-from typing import Optional, Dict, Any
+from typing import Optional
 from app.models.ai_assessment import HazardLevel, POIType
 from app.schemas.telemetry import RawTelemetryIngest, GemmaAssessmentOutput
 
 
-class GemmaSituationAssessor:
-    """Gemma 3 4B 멀티모달 상황 판단 AI 서비스"""
+class TacticalRuleAssessor:
+    """
+    [실시간 파이프라인 전용]
+    외부 LLM 네트워크 호출 없이 확정적(Deterministic) 규칙 및 시맨틱 컬러 규격으로
+    수 밀리초 이내에 현장 위험도를 즉시 판정하는 엔진
+    """
 
-    def __init__(self, model_name: str = "google/gemma-3-4b-it"):
-        self.model_name = model_name
-        self.is_loaded = False
-        # 실제 프로덕션 서버에서 로컬 가중치 또는 vLLM/Ollama 엔드포인트가 설정되었는지 감지
-        self.endpoint_url = os.getenv("GEMMA_ENDPOINT_URL")
+    # 센서 위험 판정 공통 임계치 상수 (gemma_refiner 폴백과 동일 기준)
+    CRITICAL_TEMP_C: float = 65.0
+    WARNING_TEMP_C: float = 40.0
+    CRITICAL_GAS_PPM: float = 100.0
+    WARNING_GAS_PPM: float = 30.0
+    OBSTACLE_DIST_M: float = 0.8
+    HUMAN_TEMP_MIN_C: float = 33.0
+    HUMAN_TEMP_MAX_C: float = 38.5
 
     def assess_situation(
         self,
@@ -28,11 +34,11 @@ class GemmaSituationAssessor:
     ) -> GemmaAssessmentOutput:
         """
         [발표자료 6~8페이지 규격 및 센서 확장 통합]
-        detected_objects(class, screen_box, description) 또는 영상 스냅샷 + 센서 계측값을
-        종합 분석하여 정형화된 전술 판단 JSON 반환
+        detected_objects(class, screen_box, description) 또는 센서 계측값을
+        즉시 분석하여 정형화된 전술 판단 JSON(GemmaAssessmentOutput) 반환
         """
         # ---------------------------------------------------------------------
-        # 0. 발표자료 6페이지 규격: detected_objects 가 존재하는 경우 우선 분석
+        # 1. 발표자료 6페이지 규격: detected_objects 가 존재하는 경우 시맨틱 매핑 우선 수행
         # ---------------------------------------------------------------------
         if packet.detected_objects is not None:
             if len(packet.detected_objects) == 0:
@@ -96,53 +102,54 @@ class GemmaSituationAssessor:
             )
 
         # ---------------------------------------------------------------------
-        # 1. 고온 및 연소 위험 분석 (Thermal & Fire Hazard - STEP 02 센서 호환)
+        # 2. 센서 수치 기반 실시간 위험 분석 (STEP 02 센서 호환)
         # ---------------------------------------------------------------------
         max_temp = packet.temperature.max if packet.temperature else 25.0
         avg_temp = packet.temperature.avg if packet.temperature else 23.0
         dist = packet.distance_sensor_m
-        gas = packet.gas_co_ppm
+        gas = packet.gas_co_ppm or 0.0
 
-        if max_temp >= 65.0 or (gas and gas >= 100.0):
+        # 생체 체온 열원(33.0~38.5℃) 우선 확인
+        human_detected = False
+        human_status = None
+        if packet.temperature and packet.temperature.hotspots:
+            for hs in packet.temperature.hotspots:
+                if self.HUMAN_TEMP_MIN_C <= hs.temp <= self.HUMAN_TEMP_MAX_C and max_temp < 50.0:
+                    human_detected = True
+                    human_status = "의식 저하 추정 (생체 체온 열원 감지)"
+                    break
+
+        if max_temp >= self.CRITICAL_TEMP_C or gas >= self.CRITICAL_GAS_PPM:
             hazard_level = HazardLevel.CRITICAL
             poi_type = POIType.FIRE_HOTSPOT
             summary = (
-                f"전방 고온 발화 위험 감지 (최고온도 {max_temp:.1f}℃). "
+                f"전방 고온 발화 위험 감지 (최고온도 {max_temp:.1f}℃, CO {gas:.0f}ppm). "
                 f"급격한 열기 축적으로 플래시오버(Flashover) 발생 우려 높음."
             )
             recommendation = "대원 즉시 살수 방수 실시 및 안전거리 5m 이상 확보 후 후퇴 권고."
-        elif max_temp >= 45.0 or (dist and dist <= 0.8):
+            confidence = 0.96
+        elif human_detected:
             hazard_level = HazardLevel.WARNING
-            poi_type = POIType.OBSTACLE_HAZARD if (dist and dist <= 0.8) else POIType.FIRE_HOTSPOT
+            poi_type = POIType.PERSON_RESCUE
+            summary = f"생체 체온 반응 포착! 구조 대상자(Person) 가능성 매우 높음 (주변온도 {avg_temp:.1f}℃)."
+            recommendation = "구조팀 즉시 현장 진입 및 들것·산소마스크 반입 요망."
+            confidence = 0.93
+        elif (dist is not None and dist <= self.OBSTACLE_DIST_M) or max_temp >= self.WARNING_TEMP_C or gas >= self.WARNING_GAS_PPM:
+            hazard_level = HazardLevel.WARNING
+            poi_type = POIType.OBSTACLE_HAZARD if (dist is not None and dist <= self.OBSTACLE_DIST_M) else POIType.FIRE_HOTSPOT
             summary = (
-                f"주의 요망 환경 (최고온도 {max_temp:.1f}℃"
-                + (f", 전방 {dist:.1f}m 장애물 협착 위험" if dist and dist <= 0.8 else "")
+                f"주의 요망 환경 (최고온도 {max_temp:.1f}℃, CO {gas:.0f}ppm"
+                + (f", 전방 {dist:.1f}m 장애물 협착 위험" if dist is not None and dist <= self.OBSTACLE_DIST_M else "")
                 + "). 시야 흐림 및 연기 확산 초기 상태."
             )
-            recommendation = "엄호 조 편성 및 전방 장애물 파쇄 도구 지참 후 조심스럽게 전진."
+            recommendation = "엄호 조 편성 및 복도 벽면 밀착하여 조심스럽게 우회 전진."
+            confidence = 0.91
         else:
             hazard_level = HazardLevel.NORMAL
             poi_type = POIType.SAFE_PATH
             summary = f"특이 위험 징후 없음 (주변온도 {avg_temp:.1f}℃, 최고 {max_temp:.1f}℃). 시야 및 통로 양호."
             recommendation = "정상 수색 작전 지속 및 내부 격실 순차 탐색."
-
-        # ---------------------------------------------------------------------
-        # 2. 인명 탐지 여부 (스냅샷/영상 및 계측값 기반 융합)
-        # ---------------------------------------------------------------------
-        human_detected = False
-        human_status = None
-
-        # 34~37도 부근의 체온에 근접한 핫스팟이 감지되거나 스냅샷 분석 시
-        if packet.temperature and packet.temperature.hotspots:
-            for hs in packet.temperature.hotspots:
-                if 33.0 <= hs.temp <= 38.5 and max_temp < 50.0:
-                    human_detected = True
-                    human_status = "의식 불명 추정 (생체 열원 감지)"
-                    poi_type = POIType.PERSON_RESCUE
-                    hazard_level = HazardLevel.WARNING
-                    summary = f"생체 체온 반응({hs.temp:.1f}℃) 포착! 구조 대상자(Person) 가능성 매우 높음."
-                    recommendation = "구조팀 즉시 현장 진입 및 들것·산소마스크 반입 요망."
-                    break
+            confidence = 0.90
 
         return GemmaAssessmentOutput(
             hazard_level=hazard_level,
@@ -151,10 +158,12 @@ class GemmaSituationAssessor:
             human_status=human_status,
             action_recommendation=recommendation,
             poi_type=poi_type,
-            confidence=0.92
+            confidence=confidence
         )
 
 
-# 전역 AI 판단기 싱글톤 인스턴스
-ai_assessor = GemmaSituationAssessor()
+# 하위 호환 별칭 및 전역 실시간 판단기 싱글톤 인스턴스
+GemmaSituationAssessor = TacticalRuleAssessor
+ai_assessor = TacticalRuleAssessor()
+
 

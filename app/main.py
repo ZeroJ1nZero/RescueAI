@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.api.v1.api import api_router
+from app.api.v1.endpoints import websocket
 
 # 3D 맵 파일 및 스냅샷 저장 디렉토리 자동 생성
 os.makedirs("static/maps", exist_ok=True)
@@ -29,8 +30,10 @@ app.add_middleware(
 # 정적 파일 서빙 (.glb 3D 맵 파일, 현장 스냅샷)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# API v1 라우터 등록
+# API v1 라우터 등록 (REST API: /api/v1/...)
 app.include_router(api_router)
+# 실시간 관제 WebSocket 라우터 등록 (/ws/missions/{mission_id}/dashboard)
+app.include_router(websocket.router)
 
 
 @app.get("/", tags=["시스템 상태"])
