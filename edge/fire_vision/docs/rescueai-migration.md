@@ -1,6 +1,6 @@
 # RescueAI 이전 및 검증 기록
 
-확인일: 2026-11-16. 대상 원격: `https://github.com/ZeroJ1nZero/RescueAI`, 브랜치 `main`.
+확인일: 2026-11-16. 대상 원격: `https://github.com/ZeroJ1nZero/RescueAI`, 브랜치 `embedded`.
 통합 기준: `d645f0f4337a30ed7bfe6639a6f89eaffd11ba03`. 통합은 해당 commit의 후속 commit으로 진행하며 별도 저장소 이력을 강제로 merge하지 않는다.
 
 ## 이전 범위와 충돌 최소화
@@ -50,11 +50,11 @@ Jetson은 기존 안내대로 ROS와 같은 시스템 Python ABI 및 NumPy `<2` 
 
 ## 푸시와 후속 갱신
 
-이전 commit을 로컬 RescueAI `main`에 fast-forward한 뒤 작업 트리와 원격 추적 상태를 확인한다. 사용자가 실행할 명령:
+사용자 지정에 따라 이전 commit과 브랜치 안내 수정 commit을 로컬 RescueAI `embedded`에 반영한다. 로컬 `main`은 이전 원격 기준으로 복원하고, 이전 코드는 `embedded`에 보존한다. 작업 트리와 원격 추적 상태를 확인한다. 사용자가 실행할 명령:
 
 ```bash
 cd ~/IdeaProjects/RescueAI
-git push origin main
+git push origin embedded
 ```
 
-다른 팀원이 그 사이 원격에 commit한 경우에는 `git fetch origin` 후 `git rebase origin/main`으로 갱신한다. 같은 파일을 서로 수정하면 충돌 가능성은 남지만, 기존 서버 파일을 유지하고 새 디렉터리에 추가하여 겹치는 범위를 줄였다. force push는 필요 없다.
+다른 팀원이 그 사이 원격에 commit한 경우에는 `git fetch origin` 후 `git rebase origin/embedded`으로 갱신한다. 같은 파일을 서로 수정하면 충돌 가능성은 남지만, 기존 서버 파일을 유지하고 새 디렉터리에 추가하여 겹치는 범위를 줄였다. force push는 필요 없다.

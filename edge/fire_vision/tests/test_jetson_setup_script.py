@@ -59,7 +59,7 @@ def test_driver_dry_run_works_inside_development_venv(tmp_path):
 def test_bundle_transfer_and_existing_checkout_preserved(tmp_path):
     source = tmp_path / "source"
     source.mkdir()
-    subprocess.run(["git", "init", "-b", "main", str(source)], check=True, capture_output=True)
+    subprocess.run(["git", "init", "-b", "embedded", str(source)], check=True, capture_output=True)
     (source / "README.md").write_text("offline transfer fixture\n")
     module = source / "edge/fire_vision"
     module.mkdir(parents=True)
@@ -73,7 +73,7 @@ def test_bundle_transfer_and_existing_checkout_preserved(tmp_path):
     transferred = ssd / "jetson-setup.sh"
     shutil.copyfile(SCRIPT, transferred)
     bundle = ssd / "fire-vision.bundle"
-    subprocess.run(["git", "-C", str(source), "bundle", "create", str(bundle), "main"], check=True)
+    subprocess.run(["git", "-C", str(source), "bundle", "create", str(bundle), "embedded"], check=True)
     target = tmp_path / "board checkout"
     settings = {**os.environ, "FV_REPO_DIR": str(target),
                 "FV_PROJECT_DIR": str(target / "edge/fire_vision"),
@@ -83,6 +83,8 @@ def test_bundle_transfer_and_existing_checkout_preserved(tmp_path):
     assert result.returncode == 0, result.stderr + result.stdout
     assert (target / "README.md").read_text() == "offline transfer fixture\n"
     assert (target / "edge/fire_vision/pyproject.toml").is_file()
+    branch = subprocess.check_output(["git", "-C", str(target), "branch", "--show-current"], text=True)
+    assert branch.strip() == "embedded"
     remote = subprocess.check_output(["git", "-C", str(target), "remote", "get-url", "origin"], text=True)
     assert remote.strip() == "https://github.com/ZeroJ1nZero/RescueAI"
     (target / "README.md").write_text("board edits\n")

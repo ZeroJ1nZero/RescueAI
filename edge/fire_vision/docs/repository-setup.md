@@ -1,13 +1,13 @@
 # RescueAI 저장소와 Jetson에서 가져오기
 
-Fire Vision은 `https://github.com/ZeroJ1nZero/RescueAI`의 `main` 아래 `edge/fire_vision/`에 있다. `app/`은 기존 서버이며, 이 프로젝트와 Python 환경을 공유하지 않는다. 이전 독립 저장소 주소·과거 실행 기록은 현재 배포 경로가 아니다.
+Fire Vision은 `https://github.com/ZeroJ1nZero/RescueAI`의 `embedded` 아래 `edge/fire_vision/`에 있다. `app/`은 기존 서버이며, 이 프로젝트와 Python 환경을 공유하지 않는다. 이전 독립 저장소 주소·과거 실행 기록은 현재 배포 경로가 아니다.
 
 ## GitHub에서 가져오기
 
 비공개 저장소라면 읽기 권한이 있는 GitHub 인증을 먼저 준비한다.
 
 ```bash
-git clone https://github.com/ZeroJ1nZero/RescueAI ~/RescueAI
+git clone -b embedded https://github.com/ZeroJ1nZero/RescueAI ~/RescueAI
 cd ~/RescueAI/edge/fire_vision
 git status --short
 git rev-parse HEAD

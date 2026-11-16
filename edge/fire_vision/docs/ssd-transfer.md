@@ -9,12 +9,12 @@ cd ~/IdeaProjects/RescueAI/edge/fire_vision
 mkdir -p delivery/jetson-ssd
 cp scripts/jetson-setup.sh delivery/jetson-ssd/
 cp docs/ssd-transfer.md delivery/jetson-ssd/README.md
-git bundle create "$PWD/delivery/jetson-ssd/fire-vision.bundle" main
-git rev-parse main > delivery/jetson-ssd/SOURCE_COMMIT.txt
+git bundle create "$PWD/delivery/jetson-ssd/fire-vision.bundle" embedded
+git rev-parse embedded > delivery/jetson-ssd/SOURCE_COMMIT.txt
 (cd delivery/jetson-ssd && shasum -a 256 jetson-setup.sh fire-vision.bundle SOURCE_COMMIT.txt README.md > SHA256SUMS)
 ```
 
-`git bundle`은 commit한 `main`을 포함하므로 미커밋 변경은 먼저 검토·commit한다. 구성:
+`git bundle`은 commit한 `embedded` 브랜치를 포함하므로 미커밋 변경은 먼저 검토·commit한다. 구성:
 
 ```text
 jetson-ssd/

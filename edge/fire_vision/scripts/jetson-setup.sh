@@ -135,11 +135,11 @@ case "$ACTION" in
     if (( $# )) && [[ ! -f $bundle ]]; then fail "bundle이 없습니다: $bundle"; fi
     run mkdir -p -- "$(dirname -- "$REPO_DIR")"
     if [[ -f $bundle ]]; then
-      run git clone -b main -- "$bundle" "$REPO_DIR"
+      run git clone -b embedded -- "$bundle" "$REPO_DIR"
       run git -C "$REPO_DIR" remote set-url origin "$REMOTE_URL"
     else
       printf '옆에 bundle이 없어 GitHub를 사용합니다. 비공개 저장소라면 보드 인증이 필요합니다.\n'
-      run env GIT_TERMINAL_PROMPT=0 git clone -b main -- "$REMOTE_URL" "$REPO_DIR"
+      run env GIT_TERMINAL_PROMPT=0 git clone -b embedded -- "$REMOTE_URL" "$REPO_DIR"
     fi
     run git -C "$REPO_DIR" log -1 --oneline
     ;;

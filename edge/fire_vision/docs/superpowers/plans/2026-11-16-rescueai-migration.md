@@ -4,7 +4,7 @@
 
 **Goal:** Preserve RescueAI history and backend while bringing the current Fire Vision source, pending changes, and Python setup into a push-ready commit.
 
-**Architecture:** Keep the standalone Python project under `edge/fire_vision/`. Keep the backend dependency file, app, and API specification untouched; add only a short root README link. Clone the existing target into temporary storage for preparation, then fast-forward its local main after verification.
+**Architecture:** Keep the standalone Python project under `edge/fire_vision/`. Keep the backend dependency file, app, and API specification untouched; add only a short root README link. Clone the existing target into temporary storage for preparation, then fast-forward its local embedded after verification.
 
 **Tech Stack:** Python >=3.10, setuptools, pytest, Bash, Git. Existing macOS lock uses Python 3.13; Jetson uses system Python matching ROS Humble.
 
@@ -15,7 +15,7 @@
 - Preserve source checkout and target backend files.
 - Exclude `.git`, virtual environments, credentials, data, results, caches, and delivery bundles.
 - Keep backend and edge dependency installation separate.
-- Do not push; finish with a clean target main ahead of origin/main.
+- Do not push; finish with a clean target embedded ahead of origin/embedded.
 
 ## Review Focus
 
@@ -37,7 +37,7 @@
 - [x] Install and verify from the macOS lock in a fresh temporary venv; run the entire edge test suite and CLI smoke checks.
 - [x] Record file preservation, dependency isolation, and hardware validation limits.
 - [x] Review only the new subtree and root README link; independent review found no Critical/Important/Minor issues. Commit this verified result.
-- [ ] Final delivery gate (run after committing): verify target and remote base are unchanged; fast-forward target main; verify clean state and ahead count. The final session response records this external checkout result.
+- [ ] Final delivery gate (run after committing): verify target and remote base are unchanged; fast-forward target embedded; verify clean state and ahead count. The final session response records this external checkout result.
 
 ## Execution notes
 
