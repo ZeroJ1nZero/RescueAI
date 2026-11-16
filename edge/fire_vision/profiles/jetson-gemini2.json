@@ -1,0 +1,42 @@
+{
+  "status": "candidate_not_hardware_verified",
+  "purpose": "Jetson Orin Nano 8GB and Orbbec Gemini 2 setup reference; not an E0 CLI config",
+  "board": {
+    "model_candidate": "Jetson Orin Nano 8GB",
+    "architecture_expected": "aarch64",
+    "actual_model": null,
+    "jetpack_actual": null,
+    "l4t_actual": null,
+    "power_mode_actual": null
+  },
+  "software": {
+    "ubuntu_candidate": "22.04",
+    "ros_candidate": "humble",
+    "python_candidate": "3.10",
+    "orbbec_ros_repository": "https://github.com/orbbec/OrbbecSDK_ROS2.git",
+    "orbbec_ros_tag_candidate": "v2.10.7",
+    "orbbec_ros_commit_actual": null,
+    "rtabmap_status": "defer_until_E0_passes; existing E1 runner not implemented"
+  },
+  "camera": {
+    "model": "Orbbec Gemini 2",
+    "launch_file": "gemini2.launch.py",
+    "firmware_recommended_by_candidate_release": "1.4.98",
+    "firmware_actual": null,
+    "usb_link_actual": null,
+    "rgb_topic_actual": null,
+    "depth_topic_actual": null,
+    "camera_info_topic_actual": null,
+    "accel_topic_actual": null,
+    "gyro_topic_actual": null,
+    "depth_scale_m_actual": null,
+    "registration_verified": false,
+    "imu_semantics_verified": false
+  },
+  "policy": {
+    "reflash_or_upgrade_automatically": false,
+    "install_cuda_from_pip": false,
+    "macos_lockfile_on_jetson": false,
+    "record_actual_versions_before_experiment": true
+  }
+}

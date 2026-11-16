@@ -1,0 +1,20 @@
+{
+  "status": "conditional_not_activated_or_tested",
+  "activation_requires": "Actual Orin environment audit; do not reflash or upgrade to satisfy this profile",
+  "architecture": "aarch64",
+  "os": "Ubuntu 22.04",
+  "ros_distribution": "humble",
+  "python_major_minor": "3.10",
+  "rtabmap_core_upstream_version": "0.22.1",
+  "rtabmap_ros_release_version": "0.22.1-1",
+  "rtabmap_ros_release_repository": "https://github.com/introlab/rtabmap_ros-release",
+  "rtabmap_ros_release_tag_pattern": "release/humble/{package}/0.22.1-1",
+  "exact_installed_debian_versions": null,
+  "exact_ros_runtime_versions": null,
+  "jetpack_installed": null,
+  "l4t_installed": null,
+  "cuda_installed": null,
+  "detector_backend_and_weights": null,
+  "imu_filter_version": null,
+  "reason": "Device unavailable. Release choices are conditional; package build suffixes and all runtime versions must be captured and frozen on the actual target before E1. Existing JetPack 5/Ubuntu20.04 needs a separate compatibility decision, not an automatic OS upgrade. No E1 runner is provided in this E0 delivery."
+}

@@ -1,0 +1,10 @@
+{
+  "dataset": {"path": null, "identity": "OpenLORIS-Scene", "sequence": null, "sensor": "D435i", "provenance_verified": false, "provenance_evidence": null, "depth_scale_m": null},
+  "segment": {"start_offset_s": 0.0, "duration_s": 45.0},
+  "replay": {"rate": 0.25},
+  "sync": {"rgb_depth_tolerance_s": 0.02, "pose_tolerance_s": 0.03, "gap_factor": 2.0},
+  "depth": {"min_m": 0.15, "max_m": 6.0, "invalid_raw": [0, 65535], "min_valid_ratio_per_frame": 0.05},
+  "mapping": {"resolution_m": 0.05, "height_min_m": 0.1, "height_max_m": 1.8, "floor_transform": null},
+  "detection": {"frequency_hz": 1.0, "model_version": null, "enabled": false},
+  "topics": {"rgb": "/d400/color/image_raw", "depth": "/d400/aligned_depth_to_color/image_raw", "camera_info": "/d400/color/camera_info", "accel": "/d400/accel/sample", "gyro": "/d400/gyro/sample", "tf_static": "/tf_static", "accel_info": "/d400/accel/imu_info", "gyro_info": "/d400/gyro/imu_info"}
+}

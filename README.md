@@ -3,6 +3,10 @@
 > **영상 객체 분석에서 실내 공간지도 기반 관제까지**  
 > 본 프로젝트는 화재·재난 현장에서 수집된 영상 프레임(Gemma 3 4B VLM 객체·맥락 분석) 및 센서 데이터를 구조화하여, 실내 공간지도 위에 실시간으로 시각화하고 작전 의사결정을 지원하는 **백엔드 서버 및 데이터 파이프라인 시스템**입니다.
 
+## Jetson · RGB-D/IMU 실험
+
+Jetson Orin·Orbbec Gemini 2의 오프라인 E0 입력 검증 코드와 보드 설정은 [`edge/fire_vision/`](edge/fire_vision/README.md)에 있습니다. Python 가상환경과 의존성은 백엔드와 별도로 관리합니다. [설치·저장소 안내](edge/fire_vision/docs/repository-setup.md)에서 시작하세요.
+
 ---
 
 ## 👥 1. 팀원 구성 및 파트별 연동 가이드
