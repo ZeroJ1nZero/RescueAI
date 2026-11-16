@@ -29,14 +29,6 @@ class TemperatureData(BaseModel):
     hotspots: List[HotspotInfo] = []
 
 
-class DetectionItem(BaseModel):
-    class_name: EventType = Field(..., description="탐지된 객체 유형 (PERSON, FIRE, HAZARD)")
-    confidence: Optional[float] = Field(None, description="AI 신뢰도 점수 (0.0 ~ 1.0)")
-    bbox: Optional[List[int]] = Field(None, description="2D 이미지 내 바운딩 박스 [x1, y1, x2, y2]")
-    estimated_coord: Coordinate3D = Field(..., description="3D 공간지도 상의 추정 위치")
-    snapshot_base64: Optional[str] = Field(None, description="현장 캡처 스냅샷 이미지 (선택 사항)")
-
-
 # ============================================================================
 # 1. 발표자료 6~7페이지 규격: AI 보드/서버 추출 객체 및 프레임 데이터 스키마
 # ============================================================================
@@ -67,10 +59,11 @@ class DetectedObjectItem(BaseModel):
 
 class RawTelemetryIngest(BaseModel):
     """
-    [발표자료 6~7페이지 수집 계층(Ingestion) 통합 스키마]
-    - STEP 01 프로토타입 규격: timestamp (ISO 8601 문자열 또는 Unix ms), frame_id, detected_objects
-    - STEP 02 센서 확장 호환: location, imu, temperature, distance_sensor_m, gas_co_ppm
-    (서버 수신 즉시 Save-First 원칙에 따라 raw_telemetry_logs 테이블에 원본 선저장됨)
+    [위험도 판정 입력 패킷 — 서버 내부용]
+    SSD 세션 가져오기(fire_vision_importer)가 Gemma 탐지 결과(detected_objects)를 담아
+    규칙 엔진(ai_assessor)에 넘길 때 사용합니다. 외부 수집 API는 없습니다.
+    - timestamp, frame_id, detected_objects: 현재 사용
+    - location, imu, temperature, distance_sensor_m, gas_co_ppm: 센서 확장 시 사용 (현재 미사용)
     """
     timestamp: str | int = Field(
         ...,
@@ -113,18 +106,6 @@ class RawTelemetryIngest(BaseModel):
     }
 
 
-class SessionBatchIngest(BaseModel):
-    """
-    발표자료 6~7페이지: 외장 SSD 세션 단위 일괄 이동(JSON/JSONL 배열) 등록 스키마
-    """
-    frames: List[RawTelemetryIngest] = Field(..., description="세션 프레임 데이터 목록")
-
-
-# 레거시 호환용
-TacticalTelemetryIngest = RawTelemetryIngest
-
-
-
 # ============================================================================
 # 2. Gemma 3 4B AI 모델 상황 판단 출력 규격 (Structured JSON)
 # ============================================================================
@@ -157,6 +138,8 @@ class AIAssessmentResponse(BaseModel):
     coord_y: Optional[float] = None
     coord_z: Optional[float] = None
     snapshot_url: Optional[str] = None
+    frame_id: Optional[int] = Field(None, description="세션 내 프레임 번호")
+    detected_objects: List[DetectedObjectItem] = Field(default=[], description="탐지 물체 목록 (class, screen_box, description) — 스냅샷 위 박스 표시용")
     created_at: datetime
 
     class Config:
@@ -192,6 +175,8 @@ class MapAlertMarker(BaseModel):
     action_recommendation: Optional[str] = Field(None, description="지휘관 권고사항")
     coord: Coordinate3D
     snapshot_url: Optional[str] = None
+    frame_id: Optional[int] = Field(None, description="세션 내 프레임 번호")
+    detected_objects: List[DetectedObjectItem] = Field(default=[], description="탐지 물체 목록 — 스냅샷 위 박스 표시용")
 
 
 class MapMissionStateResponse(BaseModel):

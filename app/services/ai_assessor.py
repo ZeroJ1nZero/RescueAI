@@ -1,9 +1,8 @@
 """
 연암소방대 - 실시간 전술 상황 판단 (Real-time Tactical Rule Engine) 서비스
-실시간 API(/telemetry, /telemetry/raw, /telemetry/batch)로 유입되는 프레임 객체(detected_objects) 및
-센서 계측값(온도, 거리, 자세, 가스)을 기반으로 지연 없이(Zero-Latency) 현장의 위험도와 POI 마커를 즉시 판정합니다.
-
-※ LLM(Gemma 3 4B) 프롬프트 조립 및 원시 로그 배치 정제(Refining)는 `app/services/gemma_refiner.py`에서 전담합니다.
+SSD 세션 가져오기(`app/services/fire_vision_importer.py`)에서 Gemma 3 4B가 찾은 프레임 객체(detected_objects)를
+확정적 규칙으로 위험도·POI 마커로 판정합니다. Gemma는 '무엇이 보이는가'만 답하고, 위험도는 이 규칙으로 일관되게 정합니다.
+(센서 계측값 분기는 RGB-D·열화상 센서 확장 시 사용 — 현재 입력 없음)
 """
 
 from typing import Optional
@@ -18,7 +17,7 @@ class TacticalRuleAssessor:
     수 밀리초 이내에 현장 위험도를 즉시 판정하는 엔진
     """
 
-    # 센서 위험 판정 공통 임계치 상수 (gemma_refiner 폴백과 동일 기준)
+    # 센서 위험 판정 임계치 상수 (센서 확장 시 사용)
     CRITICAL_TEMP_C: float = 65.0
     WARNING_TEMP_C: float = 40.0
     CRITICAL_GAS_PPM: float = 100.0

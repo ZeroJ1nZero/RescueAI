@@ -21,8 +21,7 @@ from app.schemas.mission import (
     SensorTrajectoryItem,
 )
 from app.schemas.telemetry import (
-    TacticalTelemetryIngest,
-    RawTelemetryIngest,
+    DetectedObjectItem,
     Coordinate3D,
     AIAssessmentResponse,
     MapMissionStateResponse,
@@ -160,130 +159,20 @@ def get_mission_replay(
     )
 
 
-@router.post(
-    "/{mission_id}/telemetry",
-    summary="[수집 계층] AI 보드 / 서버 프레임 분석 데이터 인입 API",
-    description=(
-        "프레임 분석 JSON(`timestamp`, `frame_id`, `detected_objects` [class, screen_box, description]) 및 "
-        "센서 확장 데이터를 수신하여 Save-First 원칙에 따라 원본을 선저장하고, 관제 대시보드로 중계합니다. "
-        "인증 헤더로 `X-Terminal-Id`(MDM 인가 단말) 또는 `X-Device-Id`/`X-Device-Key`를 사용합니다."
-    )
-)
-async def ingest_telemetry(
-    mission_id: int,
-    packet: TacticalTelemetryIngest,
-    device: Device = Depends(verify_edge_device),
-    db: Session = Depends(get_db)
-):
-    mission = db.query(Mission).filter(
-        Mission.mission_id == mission_id,
-        Mission.status == MissionStatus.ACTIVE
-    ).first()
-
-    if not mission:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="현재 활성화된 작전 세션이 아닙니다."
-        )
-
-    assessment = await mission_manager.process_raw_telemetry(db=db, mission=mission, packet=packet)
-
-    return {
-        "status": "ACK",
-        "mission_id": mission_id,
-        "timestamp": packet.timestamp,
-        "frame_id": packet.frame_id,
-        "detected_objects_count": len(packet.detected_objects) if packet.detected_objects else 0,
-        "assessment_id": assessment.assessment_id,
-        "hazard_level": assessment.hazard_level.value
-    }
-
-
-@router.post(
-    "/{mission_id}/telemetry/raw",
-    summary="[수집 계층 - Save-First] 원시(Raw) 세션 프레임 JSON 및 센서 인입 API",
-    description=(
-        "현장 AI 보드/외장 SSD 세션에서 추출된 JSON(`timestamp`, `frame_id`, `detected_objects`) 또는 "
-        "원시 센서 계측 데이터를 수신 즉시 `raw_telemetry_logs`에 최우선 선저장(Save-First)한 뒤, "
-        "Gemma 3 4B 상황 판단 및 공간 좌표 정합을 수행합니다."
-    )
-)
-async def ingest_raw_telemetry(
-    mission_id: int,
-    packet: RawTelemetryIngest,
-    device: Device = Depends(verify_edge_device),
-    db: Session = Depends(get_db)
-):
-    mission = db.query(Mission).filter(
-        Mission.mission_id == mission_id,
-        Mission.status == MissionStatus.ACTIVE
-    ).first()
-
-    if not mission:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="현재 활성화된 작전 세션이 아닙니다."
-        )
-
-    assessment = await mission_manager.process_raw_telemetry(db=db, mission=mission, packet=packet)
-
-    return {
-        "status": "SAVED_AND_ASSESSED",
-        "mission_id": mission_id,
-        "timestamp": packet.timestamp,
-        "frame_id": packet.frame_id,
-        "detected_objects_count": len(packet.detected_objects) if packet.detected_objects else 0,
-        "assessment_id": assessment.assessment_id,
-        "hazard_level": assessment.hazard_level.value
-    }
-
-
-@router.post(
-    "/{mission_id}/telemetry/batch",
-    summary="[수집 계층 - 외장 SSD 세션 일괄 이동] 다중 프레임(JSON/JSONL 배열) 일괄 등록 API",
-    description=(
-        "외장 SSD 세션 일괄 이동 규격에 따라, "
-        "여러 프레임의 JSON 데이터 리스트를 한 번에 일괄 등록 및 Save-First 선저장합니다."
-    )
-)
-async def ingest_batch_telemetry(
-    mission_id: int,
-    batch: List[RawTelemetryIngest],
-    device: Device = Depends(verify_edge_device),
-    db: Session = Depends(get_db)
-):
-    mission = db.query(Mission).filter(
-        Mission.mission_id == mission_id,
-        Mission.status == MissionStatus.ACTIVE
-    ).first()
-
-    if not mission:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="현재 활성화된 작전 세션이 아닙니다."
-        )
-
-    results = []
-    for packet in batch:
-        assessment = await mission_manager.process_raw_telemetry(db=db, mission=mission, packet=packet)
-        results.append({
-            "frame_id": packet.frame_id,
-            "timestamp": packet.timestamp,
-            "assessment_id": assessment.assessment_id,
-            "hazard_level": assessment.hazard_level.value
-        })
-
-    return {
-        "status": "BATCH_SAVED_AND_ASSESSED",
-        "mission_id": mission_id,
-        "total_ingested": len(results),
-        "results": results
-    }
-
-
 class AssessmentNotifyRequest(BaseModel):
     assessment_ids: List[int] = Field(..., min_length=1, max_length=500, description="새로 저장된 ai_assessments ID 목록")
     source: str = Field(default="external", max_length=50, description="알림 출처 (예: fire_vision_import)")
+
+
+def _objects_of(a: AIAssessment) -> list:
+    """assessment_json의 detected_objects 중 형식이 맞는 항목만 반환 (옛 기록의 잘못된 항목 때문에 조회가 실패하지 않도록)"""
+    out = []
+    for o in (a.assessment_json or {}).get("detected_objects") or []:
+        try:
+            out.append(DetectedObjectItem.model_validate(o))
+        except Exception:
+            continue
+    return out
 
 
 def _marker_message(a: AIAssessment) -> dict:
@@ -304,7 +193,7 @@ def _marker_message(a: AIAssessment) -> dict:
         "summary": a.situation_summary,
         "action_recommendation": a.action_recommendation,
         "coord": {"x": a.coord_x or 0.0, "y": a.coord_y or 0.0, "z": a.coord_z or 0.0},
-        "detected_objects": aj.get("detected_objects") or [],
+        "detected_objects": [o.model_dump(by_alias=True) for o in _objects_of(a)],
         "snapshot_url": f"/static/{a.snapshot_path}" if a.snapshot_path else None,
     }
 
@@ -411,7 +300,9 @@ def get_mission_map_state(
                 summary=item.situation_summary,
                 action_recommendation=item.action_recommendation,
                 coord=Coordinate3D(x=item.coord_x or 0.0, y=item.coord_y or 0.0, z=item.coord_z or 0.0),
-                snapshot_url=f"/static/{item.snapshot_path}" if item.snapshot_path else None
+                snapshot_url=f"/static/{item.snapshot_path}" if item.snapshot_path else None,
+                frame_id=(item.assessment_json or {}).get("frame_id"),
+                detected_objects=_objects_of(item)
             ))
 
     return MapMissionStateResponse(
@@ -464,6 +355,8 @@ def get_mission_ai_assessments(
             coord_y=a.coord_y,
             coord_z=a.coord_z,
             snapshot_url=f"/static/{a.snapshot_path}" if a.snapshot_path else None,
+            frame_id=(a.assessment_json or {}).get("frame_id"),
+            detected_objects=_objects_of(a),
             created_at=a.created_at
         ))
 

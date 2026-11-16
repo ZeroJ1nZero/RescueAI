@@ -12,7 +12,7 @@ GitHub 저장소를 클론한 후, 본인의 담당 파트에 맞는 섹션과 �
 | 이름 | 담당 파트 | 주요 역할 | 필독 가이드 |
 | :--- | :--- | :--- | :--- |
 | **공진영** | **Infra & Cloud** | 인프라 아키텍처 구조 설계 및 서버 파이프라인 구축 | [7. 설치 및 서버 실행](#-7-설치-및-서버-실행-가이드) |
-| **신경준** | **Data Engineering** | 데이터 엔지니어링 및 다종 데이터 저장소 파이프라인 | [6.2 AI 보드/세션 데이터 수집 규격](#62-수집-계층-ai-보드--세션-데이터-입력-규격), [8. 테스트 방법](#-8-api-연동-테스트-방법-swagger-ui--테스트-스크립트) |
+| **신경준** | **Data Engineering** | 데이터 엔지니어링 및 다종 데이터 저장소 파이프라인 | [6.2 SSD 세션 인계 규격](#62-임베디드--서버-ssd-세션-인계-규격), [8. 시험 방법](#-8-시험-방법-시험-세션--swagger-ui) |
 | **정세빈** | **Frontend & UI** | 어플리케이션 프론트엔드 디자인 및 공간지도 UI 설계 | [6.1 주요 API 엔드포인트](#61-restful-api-일람), [6.3 실시간 WebSocket](#63-관제-계층-실시간-websocket-api) |
 | **이세이** | **Frontend & UI** | 어플리케이션 프론트엔드 연동 및 관제 인터페이스 구현 | [6.1 주요 API 엔드포인트](#61-restful-api-일람), [6.3 실시간 WebSocket](#63-관제-계층-실시간-websocket-api) |
 
@@ -29,35 +29,28 @@ GitHub 저장소를 클론한 후, 본인의 담당 파트에 맞는 섹션과 �
 | **ASGI 서버** | **Uvicorn** | 초저지연 비동기 이벤트 루프 핸들링 |
 | **ORM (DB 연동)** | **SQLAlchemy 2.0** | 코드 퍼스트(Code-First) 구조, 정적 타입 힌트(`Mapped`, `mapped_column`) |
 | **데이터베이스** | **MariaDB (v10.x+)** | Save-First 원시 JSON 선저장(`raw_telemetry_logs`) 및 정형 메타/이벤트 트랜잭션 관리 |
-| **AI 분석 모델** | **Gemma 3 4B VLM** | 샘플링 프레임 기반 객체 탐지(`detected_objects`) 및 현장 위험도(Red/Orange/Yellow) 판단 |
+| **AI 분석 모델** | **Gemma 3 4B VLM (Ollama)** | 서버에서 샘플링 프레임의 물체 탐지(`detected_objects`). 위험도(Red/Orange/Yellow)는 규칙 엔진이 판정 |
 | **보안 및 인증** | **MDM + bcrypt + JWT** | 단말 인가(`X-Terminal-Id`), 공무원 보안 PIN 단방향 암호화, 역할 기반 RBAC 통제 |
 
 ---
 
-## 🏛️ 3. 3계층 파이프라인 아키텍처 (Save-First & Clean Architecture)
+## 🏛️ 3. 데이터 흐름 (SSD 세션 가져오기 단일 경로 · Save-First)
+
+현장 데이터는 **외장 SSD 세션 폴더**로만 서버에 들어옵니다. 현장 데이터를 받는 HTTP 수집 API는 없습니다.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ [Layer 01. 수집 계층 (Ingestion)]                                │
-│  - 현장 AI 보드/카메라 촬영 → 외장 SSD 세션 이동 (또는 무선 전송)│
-│  - MDM 인가 단말 검증 (X-Terminal-Id 헤더 대조)                 │
-│  - Save-First 원칙: 유입된 원시 JSON 데이터를 최우선 영구 선저장│
-└───────────────────────────────┬─────────────────────────────────┘
-                                │ HTTP POST /telemetry/raw 또는 /telemetry/batch
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ [Layer 02. 분석 계층 (Processing)]                               │
-│  - 서버 호스트 Gemma 3 4B VLM 프레임 샘플링 & 멀티모달 추론     │
-│  - 인명 후보(person), 장애물(chair 등), 화염(fire) 검출 구조화  │
-│  - 화면 위치(screen_box) 및 센서 메타데이터 정합                │
-└───────────────┬─────────────────────────────────┬───────────────┘
-                │ REST API (사후 세션 정밀 조회)   │ WebSocket (실시간 이벤트 스트리밍)
-                ▼                                 ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ [Layer 03. 관제 계층 (Control API & Map-First UI)]               │
-│  - 3단계 심층 보안 (단말 검증 → PIN bcrypt → RBAC 권한 통제)    │
-│  - 시맨틱 컬러 규격(Red/Orange/Yellow/Green/Blue) 마커 표출     │
-└─────────────────────────────────────────────────────────────────┘
+[임베디드: Jetson Orin + Orbbec Gemini 2]  (embedded 브랜치 edge/fire_vision)
+  ① SSD에 ROS2 bag 녹화 → ② extract-bag → 세션 폴더 (manifest.json + rgb/*.npy)
+        │  SSD를 서버 노트북에 유선 연결
+        ▼
+[서버: app/scripts/import_fire_vision_session.py]
+  ③ Save-First: 프레임 JPEG + 원본 메타 → raw_telemetry_logs (프레임마다 즉시 커밋)
+  ④ Gemma 3 4B 물체 탐지 → 규칙 엔진 위험도 → ai_assessments · detection_events
+  ⑤ 결과마다 POST /missions/{id}/notify/assessments
+        ▼
+[서버: FastAPI]  ⑥ WebSocket 방송  ⑦ REST 조회
+        ▼
+[안드로이드 관제 앱]  로그인 → 작전 선택 → 지도·탐지 목록·스냅샷 (조회 전용)
 ```
 
 ---
@@ -82,10 +75,10 @@ GitHub 저장소를 클론한 후, 본인의 담당 파트에 맞는 섹션과 �
 
 | 테이블명 | 주요 컬럼 | 설명 |
 | :--- | :--- | :--- |
-| **`raw_telemetry_logs`** | `log_id`, `mission_id`, `device_id`, `timestamp`, `raw_payload`(JSON), `is_processed` | **[Save-First]** 수집 계층 원시 JSON 데이터 최우선 선저장 테이블 |
+| **`raw_telemetry_logs`** | `log_id`, `mission_id`, `device_id`, `timestamp`, `raw_payload`(JSON), `is_processed` | **[Save-First]** SSD 세션 프레임의 원본 메타(세션 키, 원본 경로·해시, 시각, IMU 원시값)를 분석 전에 먼저 저장 |
 | **`ai_assessments`** | `assessment_id`, `mission_id`, `hazard_level`, `situation_summary`, `poi_type`, `coord_x,y,z`, `assessment_json` | **[Gemma 3 4B]** 프레임 객체 분석 결과 및 관제 지도 POI 마커 테이블 |
 | **`detection_events`** | `event_id`, `mission_id`, `timestamp`, `event_type`, `coord_x,y,z` | 탐지된 개별 객체(`PERSON`, `FIRE`, `HAZARD`) 이벤트 로그 |
-| **`sensor_logs`** | `log_id`, `mission_id`, `timestamp`, `pos_x,y,z`, `imu_yaw`, `ambient_temp` | 대원/카메라 이동 궤적 시계열 로그 |
+| **`sensor_logs`** | `log_id`, `mission_id`, `timestamp`, `pos_x,y,z`, `imu_yaw`, `ambient_temp` | 대원/카메라 이동 궤적 (위치 데이터가 생기는 임베디드 E1 이후 사용, 현재 미기록) |
 | **`users`** | `user_id`, `service_number`, `full_name`, `rank`, `role`, `security_clearance`, `pin_hash` | 소방 공무원 계정 및 RBAC 권한 정보 |
 | **`authorized_terminals`** | `terminal_id`, `terminal_name`, `is_active` | MDM 사전 인가 단말기 목록 (`X-Terminal-Id` 검증용) |
 | **`devices`** | `device_id`, `device_name`, `api_key`, `status` | 현장 AI 보드 / 카메라 장치 정보 |
@@ -105,43 +98,30 @@ GitHub 저장소를 클론한 후, 본인의 담당 파트에 맞는 섹션과 �
 | `GET` | `/api/v1/buildings` | 건물 목록 및 층별 도면 메타데이터 조회 | `Authorization: Bearer <JWT>` |
 | `POST` | `/api/v1/missions` | 신규 작전 세션 개시 (지휘관용) | `Authorization: Bearer <JWT>` |
 | `GET` | `/api/v1/missions/active` | 현재 진행 중인(`ACTIVE`) 작전 목록 조회 | `Authorization: Bearer <JWT>` |
-| `POST` | `/api/v1/missions/{id}/telemetry/raw` | **[수집 계층]** 단일 프레임 객체/센서 JSON 선저장 및 분석 | `X-Terminal-Id: TAB-HQ-001` |
-| `POST` | `/api/v1/missions/{id}/telemetry/batch` | **[수집 계층]** 외장 SSD 세션 다중 프레임(JSON 배열) 일괄 등록 | `X-Terminal-Id: TAB-HQ-001` |
+| `POST` | `/api/v1/missions/{id}/notify/assessments` | **[내부 연동]** 가져오기 스크립트가 저장한 결과를 앱에 WebSocket 푸시 | `X-Device-Id` / `X-Device-Key` |
 | `GET` | `/api/v1/missions/{id}/map-state` | **[관제 UI용]** 실내 지도 초기화 데이터(위치, 궤적, 위험 마커) 통합 조회 | `Authorization: Bearer <JWT>` |
 | `GET` | `/api/v1/missions/{id}/ai-assessments` | **[관제 UI용]** Gemma 3 4B 프레임 분석 이력 타임라인 조회 | `Authorization: Bearer <JWT>` |
 | `GET` | `/api/v1/missions/{id}/replay` | **[관제 UI용]** 사후 세션 궤적 및 탐지 이벤트 전체 조회 | `Authorization: Bearer <JWT>` |
 
 ---
 
-### 6.2 [수집 계층] AI 보드 / 세션 데이터 입력 규격
+### 6.2 [임베디드 → 서버] SSD 세션 인계 규격
 
-AI 보드 또는 세션 분석 워커에서 서버로 데이터를 전송할 때 아래 헤더와 JSON 스키마를 사용합니다.
+임베디드 `extract-bag` 결과 폴더를 그대로 서버에서 읽습니다. 상세 규격은 [`docs/api_specification.md` 3장](docs/api_specification.md)을 보세요.
 
-* **URL (단건)**: `POST http://<서버IP>:8000/api/v1/missions/{mission_id}/telemetry/raw`
-* **URL (일괄 배열)**: `POST http://<서버IP>:8000/api/v1/missions/{mission_id}/telemetry/batch`
-* **Headers**:
-  ```http
-  Content-Type: application/json
-  X-Terminal-Id: TAB-HQ-001
-  ```
-  *(기존 `X-Device-Id: EDGE-CAM-01` / `X-Device-Key: rescue-edge-secret-key-01` 헤더 방식도 호환됩니다.)*
+```text
+<세션 폴더>/
+  manifest.json               format = "fire-vision-normalized-v1", extraction.complete = true
+  rgb/000000_<timestamp_ns>.npy   uint8 (H, W, 3) RGB
+  calibration.json            (있으면 함께)
+```
 
-* **Request Body (JSON 추출 데이터 스키마)**:
-  ```json
-  {
-    "timestamp": "2026-10-12T05:20:00Z",
-    "frame_id": 1042,
-    "detected_objects": [
-      {
-        "class": "chair",
-        "screen_box": [120, 240, 310, 450],
-        "description": "복도 중앙을 가로막고 있는 장애물 의자"
-      }
-    ]
-  }
-  ```
-  * **필드 구성**: 관측 절대시각(`timestamp`), 프레임 번호(`frame_id`), 객체 분류 라벨(`class`), 2D 화면 좌표계 바운딩 박스(`screen_box`: `[x1, y1, x2, y2]`), 상황 서술 텍스트(`description`)
-  * 일괄 등록(`/telemetry/batch`) 호출 시에는 위 JSON 객체를 리스트(`[ {...}, {...} ]`)로 묶어서 전송합니다.
+```bash
+python app/scripts/import_fire_vision_session.py E:/session_20261120_01 --mission 1
+```
+* 프레임을 1초 간격으로 골라 원본을 먼저 저장(Save-First)한 뒤 Gemma 3 4B로 분석합니다.
+* Gemma가 꺼져 있으면 원본만 저장하고, 나중에 같은 명령으로 분석만 이어서 합니다. 같은 세션을 다시 넣어도 중복 저장하지 않습니다.
+* 탐지 좌표는 위치 데이터가 생기기 전까지 **프레임 픽셀값**입니다(실제 공간 좌표 아님).
 
 ---
 
@@ -149,8 +129,10 @@ AI 보드 또는 세션 분석 워커에서 서버로 데이터를 전송할 때
 
 * **연결 URL**: `ws://<서버IP>:8000/ws/missions/{mission_id}/dashboard?token=<JWT_TOKEN>`
 * **수신 이벤트**:
-  * `LOCATION_UPDATE`: 대원/카메라 위치 갱신 (`x`, `y`, `z`, `frame_id`, `yaw`)
-  * `AI_MARKER_ALERT`: 구조 대상(`PERSON_RESCUE`), 화점(`FIRE_HOTSPOT`), 통행 장애물(`OBSTACLE_HAZARD`) 탐지 시 실시간 마커 및 상세 설명 전송
+  * `LOCATION_UPDATE`: 대원/카메라 위치 갱신 (`x`, `y`, `z`, `frame_id`, `yaw`) — 위치 데이터 생성(임베디드 E1) 이후 사용, 현재 미발생
+  * `AI_MARKER_ALERT`: 구조 대상(`PERSON_RESCUE`), 화점(`FIRE_HOTSPOT`), 통행 장애물(`OBSTACLE_HAZARD`) 탐지 시 마커·설명·탐지 박스(`detected_objects`) 전송
+  * `ASSESSMENTS_IMPORTED`: SSD 가져오기로 새 분석 결과가 저장됨 (앱은 목록을 다시 조회)
+* 안드로이드 연동 상세: [`docs/api_specification.md` 9장](docs/api_specification.md)
 
 ---
 
@@ -159,7 +141,7 @@ AI 보드 또는 세션 분석 워커에서 서버로 데이터를 전송할 때
 GitHub 저장소를 클론(`git clone`)한 후, 로컬 PC에서 백엔드 서버를 구동하고 확인하기 위한 **필수 기반 환경(Prerequisites)**과 단계별 실행 방법입니다.
 
 ### 7.0 필수 기반 프로그램 (Prerequisites)
-서버를 구동하기 위해 아래 두 가지가 설치되어 있어야 합니다:
+서버를 구동하기 위해 아래 두 가지가 설치되어 있어야 합니다 (프레임 분석까지 하려면 3번도 필요):
 1. **Python 3.10 이상** ([python.org](https://www.python.org/downloads/)에서 설치, 설치 시 `Add Python to PATH` 체크 필수)
 2. **MariaDB (10.x 이상) 또는 MySQL Server (8.0 이상)**
    * **방법 A (로컬 설치)**: [MariaDB 다운로드](https://mariadb.org/download/)에서 설치 (기본 포트 `3306`, 설치 시 설정한 `root` 비밀번호 기억)
@@ -167,6 +149,12 @@ GitHub 저장소를 클론(`git clone`)한 후, 로컬 PC에서 백엔드 서버
      ```bash
      docker run -d --name rescue-mariadb -p 3306:3306 -e MYSQL_ROOT_PASSWORD=1234 mariadb:10.11
      ```
+3. **(선택) Ollama + Gemma 3 4B** — SSD 세션 프레임 분석용 (GPU 8GB 권장)
+   ```bash
+   winget install Ollama.Ollama      # 또는 https://ollama.com 에서 설치
+   ollama pull gemma3:4b
+   ```
+   `.env`에 `GEMMA_API_URL=http://127.0.0.1:11434/api/generate` 추가. 없으면 원본 저장까지만 수행합니다.
 
 ---
 
@@ -237,41 +225,38 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ---
 
-## 🧪 8. API 연동 테스트 방법 (Swagger UI & 테스트 스크립트)
+## 🧪 8. 시험 방법 (시험 세션 & Swagger UI)
 
-### 방법 1: 웹 브라우저(Swagger UI)에서 코드 없이 바로 테스트하기
+Jetson·카메라 없이도 시험 세션을 만들어 전체 흐름을 확인할 수 있습니다. (시험 데이터는 실측이 아닙니다)
 
-1. 브라우저에서 **[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)** (또는 `http://<서버IP>:8000/docs`) 접속
-2. **작전 세션 생성 (최초 1회)**:
-   * `POST /api/v1/auth/login` 클릭 $\rightarrow$ **[Try it out]** $\rightarrow$ `X-Terminal-Id`에 `TAB-HQ-001` 입력, Body는 기본값(`FIRE-CMD-101` / `123456`) 그대로 **[Execute]** 클릭
-   * 응답 결과의 `access_token` 문자열을 복사하여 페이지 우측 상단 초록색 **[Authorize]** 버튼에 등록
-   * `POST /api/v1/missions` 클릭 $\rightarrow$ **[Try it out]** $\rightarrow$ `building_id: 1`, `device_id: "EDGE-CAM-01"`로 실행하여 **`mission_id: 1`** 생성
-3. **프레임 데이터 전송 테스트**:
-   * **`POST /api/v1/missions/{mission_id}/telemetry/raw`** (단건) 또는 **`/telemetry/batch`** (배열 일괄) 클릭 $\rightarrow$ **[Try it out]**
-   * `mission_id`: `1` 입력
-   * `X-Terminal-Id`: `TAB-HQ-001` 입력
-   * Request body에 기본 세팅된 예시 JSON(`frame_id: 1042`, `class: "chair"`, `screen_box: [120, 240, 310, 450]`)을 확인하고 **[Execute]** 클릭
-   * `200 OK` 응답과 함께 `SAVED_AND_ASSESSED` 및 위험도 판정 결과(`hazard_level`) 즉시 확인!
-
----
-
-### 방법 2: 파이썬 테스트 스크립트(`mock_edge_sender.py`)로 전송하기
-
-저장소에 포함된 [`app/scripts/mock_edge_sender.py`](app/scripts/mock_edge_sender.py) 스크립트를 실행하면 샘플 프레임 3건(통행 장애물 의자, 구조 대상 인명, 고온 화점)을 서버로 연속 전송하며 응답을 확인할 수 있습니다.
-
-1. **(사전 확인)** 방법 1의 2번 과정을 통해 `mission_id: 1`이 생성(`ACTIVE` 상태)되어 있어야 합니다.
-2. 원격 서버로 전송할 경우 `app/scripts/mock_edge_sender.py` 상단의 `SERVER_URL = "http://<서버IP>:8000"` 주소를 수정합니다 (내 PC에서 테스트할 때는 기본값 `http://127.0.0.1:8000` 그대로 사용).
-3. 새 터미널을 열고 아래 명령어를 실행합니다:
+### 방법 1: 시험 세션 만들어 가져오기
+1. **(사전 확인)** `mission_id: 1`이 `ACTIVE` 상태여야 합니다 (방법 2의 2번 참고).
+2. 시험 세션 생성:
    ```bash
-   python app/scripts/mock_edge_sender.py 1
+   # 실제 사진 폴더로 (사진 1장 = 1초 프레임) — Gemma 실제 성능 확인용
+   python app/scripts/make_sample_fire_vision_session.py D:/test_session --images D:/photos
+   # 사진 없이 합성 영상 — 동작 확인용
+   python app/scripts/make_sample_fire_vision_session.py D:/test_session
+   ```
+3. 가져오기 (서버가 켜져 있으면 접속 중인 앱에 실시간 푸시):
+   ```bash
+   python app/scripts/import_fire_vision_session.py D:/test_session --mission 1
    ```
 4. 실행 출력 예시:
    ```text
-   [AI 보드 / 세션 수집 테스트] 작전 #1으로 JSON 프레임 데이터 전송 시작...
-   [1/3] 전송 성공 (frame_id=1042) -> hazard_level: WARNING, assessment_id: 1
-   [2/3] 전송 성공 (frame_id=1192) -> hazard_level: CRITICAL, assessment_id: 2
-   [3/3] 전송 성공 (frame_id=1342) -> hazard_level: CRITICAL, assessment_id: 3
+   [1/2 Save-First] 샘플 3개 → 새로 저장 3개, 이미 저장됨 0개, 실패 0개
+   [2/2 분석] 대상 3개 → 완료 3개, 실패 0개 (위험도: CRITICAL 1, NORMAL 1, WARNING 1)
+     [앱 푸시] 3건 방송 (경보 2건, 접속 중인 앱 1대)
    ```
-5. 전송된 결과는 `GET /api/v1/missions/1/map-state` 및 `GET /api/v1/missions/1/ai-assessments` API에서 바로 조회할 수 있습니다.
+
+### 방법 2: 웹 브라우저(Swagger UI)에서 결과 조회
+1. 브라우저에서 **[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)** (또는 `http://<서버IP>:8000/docs`) 접속
+2. **작전 세션 생성 (최초 1회)**:
+   * `POST /api/v1/auth/login` → **[Try it out]** → `X-Terminal-Id`에 `TAB-HQ-001`, Body 기본값(`FIRE-CMD-101` / `123456`) → **[Execute]**
+   * 응답의 `access_token`을 우측 상단 **[Authorize]** 버튼에 등록
+   * `POST /api/v1/missions` → `building_id: 1`, `device_id: "EDGE-CAM-01"`로 실행하여 **`mission_id: 1`** 생성
+3. **결과 조회**: `GET /api/v1/missions/1/map-state`, `GET /api/v1/missions/1/ai-assessments`
+
+
 
 
