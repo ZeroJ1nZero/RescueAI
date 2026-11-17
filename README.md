@@ -5,7 +5,7 @@
 
 ## Jetson · RGB-D/IMU 실험
 
-Jetson Orin·Orbbec Gemini 2의 오프라인 E0 입력 검증 코드와 보드 설정은 [`edge/fire_vision/`](edge/fire_vision/README.md)에 있습니다. Python 가상환경과 의존성은 백엔드와 별도로 관리합니다. [설치·저장소 안내](edge/fire_vision/docs/repository-setup.md)에서 시작하세요.
+Jetson Orin·Orbbec Gemini 2의 공간 데이터 수집 서비스와 기존 오프라인 E0 검증은 [`edge/fire_vision/`](edge/fire_vision/README.md)에 있습니다. 새 서비스는 버튼/CLI 수집과 `session.h5`·`map.json` 출력을 제공합니다. [공간 수집 실행 안내](edge/fire_vision/docs/spatial-system.md)를 참고하세요. Python 가상환경과 의존성은 백엔드와 별도로 관리합니다.
 
 ---
 

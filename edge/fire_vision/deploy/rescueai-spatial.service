@@ -1,0 +1,31 @@
+[Unit]
+Description=RescueAI spatial RGB-D acquisition
+After=local-fs.target
+RequiresMountsFor=/mnt/rescue-ssd
+ConditionPathIsMountPoint=/mnt/rescue-ssd
+
+[Service]
+Type=simple
+User=rescueai
+Group=rescueai
+SupplementaryGroups=video plugdev gpio
+WorkingDirectory=/opt/rescueai/edge/fire_vision
+ExecStart=/opt/rescueai/edge/fire_vision/.venv/bin/fire-vision spatial serve --config /etc/rescueai/spatial.json
+Environment=PYTHONUNBUFFERED=1
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+KillMode=mixed
+TimeoutStopSec=300
+UMask=0027
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/mnt/rescue-ssd
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

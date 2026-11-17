@@ -1,0 +1,41 @@
+{
+  "source": {
+    "kind": "synthetic",
+    "width": 64,
+    "height": 48,
+    "fps": 15,
+    "frames": 30,
+    "depth_scale_m": 0.001,
+    "imu_hz": 100,
+    "realtime": true
+  },
+  "storage": {
+    "path": "../results/spatial-synthetic",
+    "mount_path": null,
+    "expected_uuid": null,
+    "min_free_bytes": 104857600,
+    "allow_local": true
+  },
+  "queues": {"raw": 32, "ai": 4, "result": 8, "raw_timeout_s": 2},
+  "sync": {"tolerance_us": 20000},
+  "hdf5": {"compression": "lzf", "chunk_rows": 128},
+  "detector": {
+    "backend": "synthetic",
+    "model": null,
+    "input_size": [320, 320],
+    "interval": 1,
+    "confidence": 0.4,
+    "classes": [],
+    "dynamic_classes": ["person", "car", "bus", "bicycle", "motorcycle", "dog", "cat"],
+    "require_model": false
+  },
+  "pose": {"backend": "synthetic", "max_gap_us": 2000000},
+  "depth": {"min_m": 0.1, "max_m": 10, "sample_stride": 8},
+  "gpio": {
+    "backend": "none",
+    "button_pin": null,
+    "led_pin": null,
+    "mode": "BOARD",
+    "debounce_ms": 250
+  }
+}

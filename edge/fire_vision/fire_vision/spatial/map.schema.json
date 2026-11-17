@@ -1,0 +1,57 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://rescueai.local/schemas/spatial-map-1.0.0.json",
+  "title":"RescueAI spatial session result",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schema_version","session_id","result_revision","status","synthetic","hdf5","coordinates","time","submaps","datasets","objects","features","quality"],
+  "properties":{
+    "schema_version":{"const":"1.0.0"},
+    "session_id":{"type":"string","minLength":1},
+    "result_revision":{"type":"integer","minimum":1},
+    "status":{"enum":["complete","partial","failed"]},
+    "synthetic":{"type":"boolean"},
+    "hdf5":{"type":"object","additionalProperties":false,"required":["path","size_bytes","sha256"],"properties":{
+      "path":{"type":"string","minLength":1},"size_bytes":{"type":"integer","minimum":0},
+      "sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}}},
+    "coordinates":{"type":"object","additionalProperties":false,
+      "required":["length_unit","angle_unit","depth_optical","color_optical","map_local","matrix_storage","multiplication","T_initial_map_from_depth","origin","gravity_aligned"],
+      "properties":{"length_unit":{"const":"m"},"angle_unit":{"const":"rad"},
+        "depth_optical":{"const":"X right, Y down, Z forward"},"color_optical":{"const":"X right, Y down, Z forward"},
+        "map_local":{"const":"X forward, Y left, Z up"},"matrix_storage":{"const":"row-major"},
+        "multiplication":{"const":"column vectors: p_map = T_map_from_depth @ p_depth"},
+        "T_initial_map_from_depth":{"type":"array","minItems":4,"maxItems":4,"items":{"type":"array","minItems":4,"maxItems":4,"items":{"type":"number"}}},
+        "origin":{"type":"string","minLength":1},"gravity_aligned":{"type":"boolean"}}},
+    "time":{"type":"object","additionalProperties":false,"required":["unit","dtype","basis","duration_us","duration_basis","clock_conversion"],
+      "properties":{"unit":{"const":"us"},"dtype":{"const":"int64"},"basis":{"const":"session_start"},
+        "duration_us":{"type":"integer","minimum":0},"duration_basis":{"const":"host_monotonic_receive_span"},"clock_conversion":{"type":"object"}}},
+    "submaps":{"type":"array","items":{"type":"object","additionalProperties":false,
+      "required":["id","alignment_status","aligned_to","origin_pose_index"],"properties":{
+        "id":{"type":"integer","minimum":0},"alignment_status":{"enum":["local_only","registered"]},
+        "aligned_to":{"type":["integer","null"],"minimum":0},"origin_pose_index":{"type":"integer","minimum":0}}}},
+    "datasets":{"type":"object","additionalProperties":false,"required":["points","point_colors","point_pose_index","point_submap_id","trajectory","observations"],
+      "properties":{"points":{"$ref":"#/$defs/dataset"},"point_colors":{"$ref":"#/$defs/dataset"},"point_submap_id":{"$ref":"#/$defs/dataset"},
+        "point_pose_index":{"$ref":"#/$defs/dataset"},"trajectory":{"$ref":"#/$defs/dataset"},"observations":{"$ref":"#/$defs/dataset"}}},
+    "objects":{"type":"array","items":{"type":"object","additionalProperties":false,
+      "required":["id","class","submap_id","position_m","position_semantics","detection_confidence","position_status","failure_reason","motion_status","first_seen_us","last_seen_us","observation_count","observations","synthetic"],
+      "properties":{"id":{"type":"string","minLength":1},"class":{"type":"string","minLength":1},
+        "submap_id":{"type":["integer","null"],"minimum":0},"position_m":{"anyOf":[{"type":"null"},{"$ref":"#/$defs/vector3"}]},
+        "position_semantics":{"const":"observed_surface_representative"},"detection_confidence":{"type":"number","minimum":0,"maximum":1},
+        "position_status":{"type":"string","minLength":1},"failure_reason":{"type":["string","null"]},
+        "motion_status":{"type":"string","minLength":1},"first_seen_us":{"type":"integer"},"last_seen_us":{"type":"integer"},
+        "observation_count":{"type":"integer","minimum":1},"observations":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/recordRef"}},
+        "synthetic":{"type":"boolean"}}}},
+    "features":{"type":"object","additionalProperties":{"type":"object","required":["status"],
+      "properties":{"status":{"enum":["success","failed","disabled","partial"]},"reason":{"type":["string","null"]}}}},
+    "quality":{"type":"object","additionalProperties":false,"required":["metrics","tracking_failures","warnings","events_dataset"],
+      "properties":{"metrics":{"type":"object"},"tracking_failures":{"type":"array","items":{"type":"object","additionalProperties":false,
+        "required":["start_us","end_us","status"],"properties":{"start_us":{"type":"integer"},"end_us":{"type":"integer"},"status":{"type":"string","minLength":1}}}},
+        "warnings":{"type":"array","items":{"type":"string"}},"events_dataset":{"$ref":"#/$defs/dataset"}}}
+  },
+  "$defs":{
+    "dataset":{"type":"string","pattern":"^/[^\\\\]+$"},
+    "vector3":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"number"}},
+    "recordRef":{"type":"object","additionalProperties":false,"required":["dataset","index"],"properties":{
+      "dataset":{"const":"/derived/observations"},"index":{"type":"integer","minimum":0}}}
+  }
+}

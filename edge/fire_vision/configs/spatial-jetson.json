@@ -1,0 +1,50 @@
+{
+  "source": {
+    "kind": "orbbec",
+    "serial": null,
+    "expected_model": "Orbbec Gemini 2",
+    "color_width": 640,
+    "color_height": 480,
+    "depth_width": 640,
+    "depth_height": 480,
+    "fps": 30,
+    "imu": true,
+    "imu_queue_size": 2048,
+    "timeout_seconds": 5
+  },
+  "storage": {
+    "path": "/mnt/rescue-ssd/rescue-sessions",
+    "mount_path": "/mnt/rescue-ssd",
+    "expected_uuid": "REPLACE_WITH_ACTUAL_SSD_UUID",
+    "min_free_bytes": 2147483648,
+    "allow_local": false
+  },
+  "queues": {"raw": 32, "ai": 4, "result": 8, "raw_timeout_s": 2},
+  "sync": {"tolerance_us": 20000},
+  "hdf5": {"compression": "lzf", "chunk_rows": 128},
+  "detector": {
+    "backend": "disabled",
+    "model": null,
+    "input_size": [320, 320],
+    "interval": 3,
+    "confidence": 0.4,
+    "classes": [],
+    "dynamic_classes": ["person", "car", "bus", "bicycle", "motorcycle", "dog", "cat"],
+    "require_model": false
+  },
+  "pose": {
+    "backend": "disabled",
+    "max_gap_us": 2000000,
+    "min_depth_m": 0.1,
+    "max_depth_m": 10,
+    "max_step_translation_m": 1
+  },
+  "depth": {"min_m": 0.1, "max_m": 10, "sample_stride": 8},
+  "gpio": {
+    "backend": "none",
+    "button_pin": null,
+    "led_pin": null,
+    "mode": "BOARD",
+    "debounce_ms": 250
+  }
+}

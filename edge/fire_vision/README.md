@@ -1,5 +1,13 @@
 # Fire Vision — Jetson Orin · Orbbec Gemini 2 프로토타입
 
+## 공간 데이터 수집·생성 서비스
+
+`fire-vision spatial`에 버튼/CLI 세션 제어, bounded 원본 기록·AI 처리, HDF5·JSON 검증/출력,
+합성·재생 입력과 Reader API를 추가했다. [설치·실행·서비스·데이터 규격](docs/spatial-system.md)과
+[검증 보고서](docs/spatial-verification.md)를 참고한다. 실제 Gemini 2 획득·TensorRT·GPIO는 보드 검증이
+필요하다. Open3D 경로는 RGB-D odometry이고 loop-closing SLAM은 아직 제공하지 않는다.
+아래의 기존 E0 명령과 실험 단계 차단은 그대로 유지한다.
+
 RescueAI의 `edge/fire_vision/`에 있는 독립 Python 프로젝트다. Jetson 보드 환경을 점검하고 RGB-D/IMU 공간 인지 실험을 준비한다. 백엔드의 `app/`·`requirements.txt`·가상환경과 분리해 설치한다. 아래 명령은 이 디렉터리에서 실행한다. **Gemini 2는 Orbbec 깊이 카메라**이며, Google Gemini API를 뜻하지 않는다.
 
 ## 보드에서 시작하기
@@ -11,7 +19,7 @@ SSD로 옮겨 실행하려면 [SSD 실행 안내](docs/ssd-transfer.md)와 [명�
 3. [보드 확인 기록표](docs/jetson-board-checklist.md): 실제 장비에서 확인한 값과 근거를 기록하는 양식.
 4. [장치 프로파일](profiles/jetson-gemini2.json): 미검증 후보 설정. 기존 E0 실행 config와 별개이며 CLI 입력으로 사용하지 않는다.
 
-이 문서는 실제 Jetson·카메라 접속 없이 공식 자료를 확인하여 작성했다. 하드웨어 동작·실시간 성능을 검증한 결과가 아니다. 현재 구현은 아래의 오프라인 E0 입력 검증이며, Gemini 2 실시간 획득 노드와 E1 이후 runner는 후속 작업이다.
+기존 보드 설정 문서는 실제 Jetson·카메라 접속 없이 공식 자료를 확인하여 작성했다. 하드웨어 동작·실시간 성능을 검증한 결과가 아니다. 아래 E0 실험 경로와 새 `spatial` 서비스는 별개이며, E1 이후 실험 runner는 후속 작업이다.
 
 ## 기존 오프라인 실험 — 환경 조사와 E0
 

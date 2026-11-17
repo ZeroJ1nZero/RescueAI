@@ -12,6 +12,15 @@ dependencies = ["numpy>=1.26,<3", "Pillow>=10,<13", "matplotlib>=3.6,<4", "rosba
 [project.scripts]
 fire-vision = "fire_vision.cli:main"
 
+[project.optional-dependencies]
+spatial = ["h5py>=3.10,<4", "jsonschema>=4.21,<5"]
+inference = ["opencv-python-headless>=4.8,<6"]
+odometry = ["open3d==0.19.0"]
+test = ["pytest>=8,<10"]
+
+[tool.setuptools.package-data]
+"fire_vision.spatial" = ["map.schema.json"]
+
 [tool.setuptools.packages.find]
 include = ["fire_vision*"]
 

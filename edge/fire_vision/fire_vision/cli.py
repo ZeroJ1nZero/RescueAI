@@ -9,6 +9,10 @@ from .export import Session, write_json, verify_export, protect_source
 
 
 def main(argv=None):
+    effective = list(argv) if argv is not None else sys.argv[1:]
+    if effective and effective[0] == "spatial":
+        from .spatial.cli import main as spatial_main
+        return spatial_main(effective[1:])
     parser=argparse.ArgumentParser(description="Measured RGB-D/IMU experiment tooling; E0 first")
     sub=parser.add_subparsers(dest="command",required=True)
     env=sub.add_parser("environment"); env.add_argument("--out",required=True)
